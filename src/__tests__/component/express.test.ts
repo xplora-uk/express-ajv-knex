@@ -1,38 +1,67 @@
-import express from 'express';
-import request from 'supertest';
+import { newLogger } from '@xplora-uk/logger/lib';
 import { expect } from 'chai';
+import express from 'express';
+import knex from 'knex';
+import request from 'supertest';
 
-describe('RequestRejector', () => {
+import { controllerForExpressApp, validatorForExpressApp } from '../../express';
+import { BasicDb } from '../../knex';
+import { initUsers } from './users';
+import { initPets } from './pets';
 
-  it('should be able to create an instance and create middleware that rejects requests', (done) => {
+describe('express controllers and validator', async () => {
+
+  it('should be able to create an app and test', async () => {
     const app = express();
 
-    // TODO: 
+    app.use(express.json());
 
-    request(app)
+    app.get('/', (_req, res) => { res.json({ data: 'Hi' }) });
+
+    const logger = newLogger({ kind: 'console', level: 'debug', app: { app_name: 'test', app_version: '1.0.0', env: 'test' }});
+
+    const dbRw = knex({ client: 'sqlite3', connection: { filename: ':memory:' }, useNullAsDefault: true});
+    const dbRo = dbRw;
+
+    const db = new BasicDb(dbRw, dbRo, logger);
+
+    const { userRepo, userController } = await initUsers(db, logger);
+    const { petController }   = await initPets(db, logger);
+
+    validatorForExpressApp(app, { openApiSpecFilePath: __dirname + '/pet-store.yaml' }, logger);
+    controllerForExpressApp(app, { tableName: 'User', path: '/user' }, db, logger, userRepo, userController);
+
+    app.get('/pet/:petId', petController.select);
+    app.post('/pet', petController.insert);
+    app.put('/pet', petController.update); // TODO: this one is tricky!!
+    app.get('/pet/:petId', petController.select);
+    app.delete('/pet/:petId', petController.delete);
+
+    const res1 = await request(app)
       .get('/')
-      .expect(500)
-      .end(function(err, res) {
-        if (err) throw err;
-        expect('error' in res.body).to.be.true;
-        // { error: 'server is busy' }
-        done();
-      });
-  });
+      .expect(200);
+    expect('data' in res1.body).to.be.true;
 
-  it('should be able to create an instance and create middleware that does not reject requests', (done) => {
-    const app = express();
+    const res2 = await request(app)
+      .post('/pet')
+      .send({ name: 'Silly', photoUrls: ['http://example.com/img1.jpg' ] })
+      .expect(200);
+    console.info('res2.body:', res2.body);
+    expect('data' in res2.body).to.be.true;
 
-    app.get('/', (_req, res) => res.json({ ok: true }));
+    // TODO: run update
 
-    request(app)
-      .get('/')
-      .expect(200)
-      .end(function(err, res) {
-        if (err) throw err;
-        expect('error' in res.body).to.be.false;
-        done();
-      });
+    const res4 = await request(app)
+      .get('/pet/' + res2.body.data.id)
+      .expect(200);
+    console.info('res4.body:', res4.body);
+    expect('data' in res4.body).to.be.true;
+
+    const res5 = await request(app)
+      .delete('/pet/' + res2.body.data.id)
+      .expect(200);
+    console.info('res5.body:', res5.body);
+    expect('data' in res5.body).to.be.true;
   });
 
 });

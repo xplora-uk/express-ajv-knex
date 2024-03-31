@@ -14,11 +14,11 @@ export class BasicDb implements IBasicDbService {
     
   }
 
-  dbRw() {
+  get dbRw() {
     return this._dbRw;
   }
 
-  dbRo() {
+  get dbRo() {
     return this._dbRo;
   }
 

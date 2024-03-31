@@ -1,52 +1,98 @@
 import { Knex } from 'knex';
 
-export type IdType = string;
-// export type IDbDtoScalar = string | number | boolean | null | unknown; // unknown is for JSON fields
-// export type IDbDto = Record<string, IDbDtoScalar>;
-export interface IDbDto extends Record<string, any> {
-  id: IdType;
-}
-
 export interface IBasicDbService {
   name: string;
-  dbRw(): Knex;
-  dbRo(): Knex;
+  dbRw: Knex;
+  dbRo: Knex;
   repo<TRow extends {} = any>(tableName: string, onCreate: IBasicDbRepo<TRow>): IBasicDbRepo<TRow>;
   start(): Promise<void>;
   stop(): Promise<void>;
 }
 
 export interface IBasicDbRepo<TRow extends {} = any> {
-  db                                     : IBasicDbService;
-  tableName                              : string;
-  _rwTable()                             : Knex.QueryBuilder<TRow>;
-  selectMany(options: ISelectManyOptions): Promise<IDbResultPaginated<Partial<TRow>>>;
-  select(options: ISelectOneOptions)     : Knex.QueryBuilder<Partial<TRow>>;
-  insert(data: Partial<TRow>)            : Knex.QueryBuilder<Partial<TRow>>;
-  update(id: IdType, data: Partial<TRow>): Knex.QueryBuilder<Partial<TRow>>;
-  delete(id: IdType)                     : Knex.QueryBuilder;
+  db         : IBasicDbService;
+  tableName  : string;
+  columnNames: string[];
+
+  columnNamesNoSelect: string[];
+  columnNamesNoCreate: string[];
+  columnNamesNoUpdate: string[];
+
+  idColumn       : string;
+  createdAtColumn: string;
+  updatedAtColumn: string;
+
+  columnNamesSelectable(): string[];
+  columnNamesCreatable() : string[];
+  columnNamesUpdatable() : string[];
+
+  rwTable(): Knex.QueryBuilder<TRow>;
+
+  whereAdapter(criteria?: IDbCriterion[]): Knex.QueryCallback;
+
+  selectCount(options: ISelectCountOptions): Promise<number>;
+  selectMany(options: ISelectManyOptions)  : Promise<Array<Partial<TRow>>>;
+  select(options: ISelectOneOptions)       : Promise<Partial<TRow | null>>;
+  insert(data: Partial<TRow>)              : Promise<Partial<TRow>>;
+  update(id: IdType, data: Partial<TRow>)  : Promise<number>;
+  delete(id: IdType)                       : Promise<number>;
 }
 
 export interface ISharedSelectOptions {
-  columns ?: string[] | string;
-  criteria?: any;
+  /**
+   * list of column names to select, default is '*'
+   */
+  columns ?: string[];
+  criteria?: IDbCriterion[];
   limit   ?: number;
   offset  ?: number;
   orderBy ?: string;
-  orderDir?: 'asc' | 'desc';
+  orderDir?: IDbOrderDir;
 }
 
 export type ISelectOneOptions = ISharedSelectOptions;
-
-export interface ISelectManyOptions extends ISharedSelectOptions {
-
-}
+export type ISelectManyOptions = ISharedSelectOptions;
+export type ISelectCountOptions = Pick<ISharedSelectOptions, 'criteria'>;
 
 export interface IDbResultPaginated<TRow extends {} = any> {
   data: TRow[];
   page: {
-    total: number;
-    limit: number;
+    count : number;
+    limit : number;
     offset: number;
   };
+}
+
+export interface IDbCriterion {
+  /**
+   * key or column name
+   */
+  k: string;
+  /**
+   * default operation is '$eq'
+   */
+  o?: IDbOp;
+  /**
+   * value
+   */
+  v?: IDbVal;
+  /**
+   * values
+   */
+  vlist?: IDbVal[];
+}
+
+export type IDbOrderDir = 'asc' | 'desc';
+
+export type IDbOp$ = '$eq' | '$neq' | '$gt' | '$gte' | '$lt' | '$lte' | '$like' | '$ilike' | '$in' | '$nin' | '$notin' | '$nil' | '$nnil';
+export type IDbOpExt = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'nin' | 'notin' | 'nil' | 'nnil';
+export type IDbOpSign = '=' | '!=' | '<>' | '>' | '>=' | '<' | '<=';
+export type IDbOp = IDbOp$ | IDbOpExt | IDbOpSign;
+export type IDbVal = string | number | boolean | null | Date;
+
+export type IdType = string | number;
+// export type IDbDtoScalar = string | number | boolean | null | unknown; // unknown is for JSON fields
+// export type IDbDto = Record<string, IDbDtoScalar>;
+export interface IDbDto extends Record<string, any> {
+  id: IdType;
 }

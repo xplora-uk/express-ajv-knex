@@ -17,9 +17,10 @@ export function controllerForExpressApp<TRow extends {} = any>(
 
   const prefix = options.path || `/${options.tableName}`;
 
-  app.get   (`${prefix}/:id`, controller.select);
-  app.patch (`${prefix}/:id`, controller.update);
-  app.delete(`${prefix}/:id`, controller.delete);
-  app.post  (prefix,          controller.insert);
-  app.get   (prefix,          controller.selectMany);
+  app.get   (`${prefix}/:${controller.idParamPlaceHolder}`, controller.select);
+  app.patch (`${prefix}/:${controller.idParamPlaceHolder}`, controller.update);
+  app.delete(`${prefix}/:${controller.idParamPlaceHolder}`, controller.delete);
+
+  app.post(prefix, controller.insert);
+  app.get (prefix, controller.selectMany);
 }
