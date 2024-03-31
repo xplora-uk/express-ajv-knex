@@ -15,10 +15,10 @@ export async function initUsers(db: BasicDb, logger: ILogger) {
   });
 
   class UserRepo extends BasicDbRepo {
-    public idColumn                      = 'id';
-    public createdAtColumn               = '';
-    public updatedAtColumn               = '';
-  
+    public idColumn        = 'id';
+    public createdAtColumn = '';
+    public updatedAtColumn = '';
+
     public columnNames: string[]         = ['id', 'name', 'firstName', 'lastName', 'email', 'password', 'phone', 'userStatus'];
     public columnNamesNoSelect: string[] = ['password'];
     public columnNamesNoCreate: string[] = ['id'];

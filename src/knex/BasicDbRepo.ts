@@ -31,6 +31,9 @@ export class BasicDbRepo<TRow extends {} = any> implements IBasicDbRepo<TRow> {
   rwTable() {
     return this.db.dbRw(this.tableName);
   }
+  roTable() {
+    return this.db.dbRo(this.tableName);
+  }
 
   whereAdapter(criteria: IDbCriterion[] = []) {
 
@@ -107,7 +110,7 @@ export class BasicDbRepo<TRow extends {} = any> implements IBasicDbRepo<TRow> {
   async selectCount(options: ISelectCountOptions): Promise<number> {
     let { criteria = [] } = options;
 
-    const rowCounter = await this.db.dbRo()
+    const rowCounter = await this.roTable()
       .count('* as count')
       .from<{ count: number; }>(this.tableName)
       .where(this.whereAdapter(criteria))
@@ -123,7 +126,7 @@ export class BasicDbRepo<TRow extends {} = any> implements IBasicDbRepo<TRow> {
     if (limit > 1000) limit = 1000;
     if (offset < 0) offset = 0;
 
-    const rows = await this.db.dbRo()
+    const rows = await this.roTable()
       .select(columns)
       .from<Partial<TRow>>(this.tableName)
       .where(this.whereAdapter(criteria))
@@ -137,7 +140,7 @@ export class BasicDbRepo<TRow extends {} = any> implements IBasicDbRepo<TRow> {
   async select(options: ISelectOneOptions): Promise<Partial<TRow | null>> {
     let { columns = [], criteria = {}, orderBy = this.idColumn, orderDir = 'asc' } = options;
 
-    const row = await this.db.dbRo()
+    const row = await this.roTable()
       .select(columns)
       .from<Partial<TRow>>(this.tableName)
       .where(criteria)

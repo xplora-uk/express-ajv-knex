@@ -27,6 +27,7 @@ export interface IBasicDbRepo<TRow extends {} = any> {
   columnNamesUpdatable() : string[];
 
   rwTable(): Knex.QueryBuilder<TRow>;
+  roTable(): Knex.QueryBuilder<TRow>;
 
   whereAdapter(criteria?: IDbCriterion[]): Knex.QueryCallback;
 

@@ -1,4 +1,4 @@
 export * from './BasicController';
-export * from './controller';
+export * from './controller-for-express';
 export * from './types';
-export * from './validator';
+export * from './validator-for-express';

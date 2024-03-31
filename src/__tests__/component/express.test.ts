@@ -31,17 +31,18 @@ describe('express controllers and validator', async () => {
     validatorForExpressApp(app, { openApiSpecFilePath: __dirname + '/pet-store.yaml' }, logger);
     controllerForExpressApp(app, { tableName: 'User', path: '/user' }, db, logger, userRepo, userController);
 
-    app.get('/pet/:petId', petController.select);
-    app.post('/pet', petController.insert);
-    app.put('/pet', petController.update); // TODO: this one is tricky!!
-    app.get('/pet/:petId', petController.select);
+    app.post  ('/pet', petController.insert);
+    app.put   ('/pet', petController.update); // TODO: this one is tricky!!
+    app.get   ('/pet/:petId', petController.select);
     app.delete('/pet/:petId', petController.delete);
 
+    console.info('GET /');
     const res1 = await request(app)
       .get('/')
       .expect(200);
     expect('data' in res1.body).to.be.true;
 
+    console.info('POST /pet');
     const res2 = await request(app)
       .post('/pet')
       .send({ name: 'Silly', photoUrls: ['http://example.com/img1.jpg' ] })
@@ -51,12 +52,14 @@ describe('express controllers and validator', async () => {
 
     // TODO: run update
 
+    console.info('GET /pet/:petId');
     const res4 = await request(app)
       .get('/pet/' + res2.body.data.id)
       .expect(200);
     console.info('res4.body:', res4.body);
     expect('data' in res4.body).to.be.true;
 
+    console.info('DELETE /pet/:petId');
     const res5 = await request(app)
       .delete('/pet/' + res2.body.data.id)
       .expect(200);
