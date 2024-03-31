@@ -38,15 +38,14 @@ npm i
 ```plain
 src/
   __tests__/
-    component/
-      express.test.ts          component tests for express middleware
-      RequestRejector.test.ts  component tests for RequestRejector
-    unit/
-      MemoryTracker.test.ts    unit tests for MemoryTracker
-  index.ts                     main file that exports features of this library
-  express.ts                   file for express middleware - shortcut
-  MemoryTracker.ts             MemoryTracker can give info about heap memory
-  RequestRejector              RequestRejector uses MemoryTracker and creates an express middleware
+    component/            component tests
+    unit/                 unit tests
+  ajv/                    load ajv lib
+  express/                controller and validator for express app
+  knex/                   db classes to support controller
+  open-api/               use schemas from api spec for json schema validation
+  utils/                  utility functions
+  index.ts                main file that exports features of this library
 ```
 
 ### build
