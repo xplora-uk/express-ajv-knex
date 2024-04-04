@@ -18,25 +18,28 @@ export interface IBasicDbRepo<TRow extends {} = any> {
   columnNamesNoCreate: string[];
   columnNamesNoUpdate: string[];
 
-  idColumn       : string;
-  createdAtColumn: string;
-  updatedAtColumn: string;
+  // idColumn    : string;
+  // createdAtColumn: string;
+  // updatedAtColumn: string;
 
-  columnNamesSelectable(): string[];
-  columnNamesCreatable() : string[];
-  columnNamesUpdatable() : string[];
+  columnNamesSelectable: string[];
+  columnNamesCreatable : string[];
+  columnNamesUpdatable : string[];
+
+  LIMIT_DEFAULT: number;
+  LIMIT_MAX    : number;
 
   rwTable(): Knex.QueryBuilder<TRow>;
-  roTable(): Knex.QueryBuilder<TRow>;
+  // roTable(): Knex.QueryBuilder<TRow>;
 
   whereAdapter(criteria?: IDbCriterion[]): Knex.QueryCallback;
 
-  selectCount(options: ISelectCountOptions): Promise<number>;
-  selectMany(options: ISelectManyOptions)  : Promise<Array<Partial<TRow>>>;
-  select(options: ISelectOneOptions)       : Promise<Partial<TRow | null>>;
-  insert(data: Partial<TRow>)              : Promise<Partial<TRow>>;
-  update(id: IdType, data: Partial<TRow>)  : Promise<number>;
-  delete(id: IdType)                       : Promise<number>;
+  selectCount(options: ISelectCountOptions)   : Promise<number>;
+  selectMany(options: ISelectManyOptions)     : Promise<Array<TRow>>;
+  selectOne(options: ISelectOneOptions)       : Promise<TRow | null>;
+  insertOne(newRow: Partial<TRow>)            : Promise<IdType | null>;
+  updateOne(id: IdType, change: Partial<TRow>): Promise<number>;
+  deleteOne(id: IdType)                       : Promise<number>;
 }
 
 export interface ISharedSelectOptions {
@@ -91,9 +94,22 @@ export type IDbOpSign = '=' | '!=' | '<>' | '>' | '>=' | '<' | '<=';
 export type IDbOp = IDbOp$ | IDbOpExt | IDbOpSign;
 export type IDbVal = string | number | boolean | null | Date;
 
-export type IdType = string | number;
-// export type IDbDtoScalar = string | number | boolean | null | unknown; // unknown is for JSON fields
-// export type IDbDto = Record<string, IDbDtoScalar>;
+export type IdType = string;
+
 export interface IDbDto extends Record<string, any> {
   id: IdType;
+}
+
+export type IPartialRowWithId<TRow extends {} = any> = Partial<TRow> & {
+  id: string;
+};
+
+export type IPartialRowWithUpdate<TRow extends {} = any> = Partial<TRow> & {
+  updatedAtUtc: Date;
+};
+
+export type IPartialRowExtended<TRow extends {} = any> = Partial<TRow> & {
+  id          : string;
+  createdAtUtc: Date;
+  updatedAtUtc: Date;
 }

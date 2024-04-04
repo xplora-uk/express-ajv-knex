@@ -10,20 +10,20 @@ export interface IResourceOptions {
   tableName : string;
   path     ?: string;
   schemas  ?: {
-    create      : string;
-    retrieveMany: string;
-    retrieve    : string;
-    update      : string;
-    delete      : string;
+    insertOne : string;
+    selectMany: string;
+    selectOne : string;
+    updateOne : string;
+    deleteOne : string;
   };
 }
 
 export interface IResourceController<TRow extends {} = any> {
   repo      : IBasicDbRepo<TRow>;
   logger    : ILogger;
-  insert    : (req: Request, res: Response) => Promise<void>;
+  insertOne : (req: Request, res: Response) => Promise<void>;
   selectMany: (req: Request, res: Response) => Promise<void>;
-  select    : (req: Request, res: Response) => Promise<void>;
-  update    : (req: Request, res: Response) => Promise<void>;
-  delete    : (req: Request, res: Response) => Promise<void>;
+  selectOne : (req: Request, res: Response) => Promise<void>;
+  updateOne : (req: Request, res: Response) => Promise<void>;
+  deleteOne : (req: Request, res: Response) => Promise<void>;
 }

@@ -26,15 +26,15 @@ describe('express controllers and validator', async () => {
     const db = new BasicDb(dbRw, dbRo, logger);
 
     const { userRepo, userController } = await initUsers(db, logger);
-    const { petController }   = await initPets(db, logger);
+    const { petController } = await initPets(db, logger);
 
-    validatorForExpressApp(app, { openApiSpecFilePath: __dirname + '/pet-store.yaml' }, logger);
+    validatorForExpressApp(app, { openApiSpecFilePath: __dirname + '/pet-store.yaml' });
     controllerForExpressApp(app, { tableName: 'User', path: '/user' }, db, logger, userRepo, userController);
 
-    app.post  ('/pet', petController.insert);
-    app.put   ('/pet', petController.update); // TODO: this one is tricky!!
-    app.get   ('/pet/:petId', petController.select);
-    app.delete('/pet/:petId', petController.delete);
+    app.post  ('/pet', petController.insertOne);
+    app.put   ('/pet', petController.updateOne); // TODO: this one is tricky!!
+    app.get   ('/pet/:petId', petController.selectOne);
+    app.delete('/pet/:petId', petController.deleteOne);
 
     console.info('GET /');
     const res1 = await request(app)

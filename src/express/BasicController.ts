@@ -3,7 +3,8 @@ import { Request, Response } from 'express';
 
 import { BasicDbRepo } from '../knex/BasicDbRepo';
 import { IResourceController } from './types';
-import { convertHttpRequestBodyToRow, convertRequestQueryToDbColumns, convertRequestQueryToDbSelector, extractIdFromHttpPathParams } from '../utils/http';
+import { convertHttpRequestBodyToRow, convertRequestQueryToDbColumns, convertRequestQueryToDbSelector, extractIdFromHttpPathParams, uuidV4 } from '../utils';
+import { IPartialRowExtended, IPartialRowWithUpdate } from '../types';
 
 export class BasicController<TRow extends {} = any> implements IResourceController<TRow> {
   name = 'BasicController';
@@ -15,16 +16,16 @@ export class BasicController<TRow extends {} = any> implements IResourceControll
     public repo: BasicDbRepo<TRow>,
     public logger: ILogger,
   ) {
-    this.insert     = this.insert.bind(this);
+    this.insertOne  = this.insertOne.bind(this);
     this.selectMany = this.selectMany.bind(this);
-    this.select     = this.select.bind(this);
-    this.update     = this.update.bind(this);
-    this.delete     = this.delete.bind(this);
+    this.selectOne  = this.selectOne.bind(this);
+    this.updateOne  = this.updateOne.bind(this);
+    this.deleteOne  = this.deleteOne.bind(this);
 
     // local cache
-    this.columnNamesSelectable = repo.columnNamesCreatable();
-    this.columnNamesCreatable  = repo.columnNamesCreatable();
-    this.columnNamesUpdatable  = repo.columnNamesUpdatable();
+    this.columnNamesSelectable = repo.columnNamesCreatable;
+    this.columnNamesCreatable  = repo.columnNamesCreatable;
+    this.columnNamesUpdatable  = repo.columnNamesUpdatable;
   }
 
   async selectMany(req: Request, res: Response): Promise<void> {
@@ -36,32 +37,95 @@ export class BasicController<TRow extends {} = any> implements IResourceControll
     res.json({ data, page });
   }
 
-  async select(req: Request, res: Response): Promise<void> {
+  async selectOne(req: Request, res: Response): Promise<void> {
     const id      = extractIdFromHttpPathParams(req.params, this.idParamPlaceHolder);
     const columns = convertRequestQueryToDbColumns(req.query, this.columnNamesSelectable);
-    const data = await this.repo.select({
+    const data = await this.repo.selectOne({
       columns,
-      criteria: [{ k: this.repo.idColumn, v: id }],
+      criteria: [{ k: 'id', v: id }],
     });
     res.json({ data });
   }
 
-  async insert(req: Request, res: Response): Promise<void> {
-    const row  = convertHttpRequestBodyToRow<TRow>(req.body, this.columnNamesCreatable);
-    const data = await this.repo.insert(row);
-    res.json({ data });
+  protected async beforeInsertOne(rawRow: Partial<TRow>): Promise<IPartialRowExtended<TRow>> {
+    // check/change row
+    return {
+      ...rawRow,
+      id: uuidV4(),
+      createdAtUtc: new Date(),
+      updatedAtUtc: new Date(),
+    };
   }
 
-  async update(req: Request, res: Response): Promise<void> {
-    const id   = extractIdFromHttpPathParams(req.params, this.idParamPlaceHolder);
-    const row  = convertHttpRequestBodyToRow<TRow>(req.body, this.columnNamesUpdatable);
-    const data = await this.repo.update(id, row);
-    res.json({ data });
+  async insertOne(req: Request, res: Response): Promise<void> {
+    const rawRow = convertHttpRequestBodyToRow<TRow>(req.body, this.columnNamesCreatable);
+    const row = await this.beforeInsertOne(rawRow);
+    const id = await this.repo.insertOne(row);
+    res.json({ data: id ? { id } : null });
+    try {
+      await this.afterInsertOne(row);
+    } catch (error) {
+      this.logger.error({ msg: this.name + '.afterInsert failed', data: { error, row }});
+    }
   }
 
-  async delete(req: Request, res: Response): Promise<void> {
-    const id   = extractIdFromHttpPathParams(req.params, this.idParamPlaceHolder);
-    const data = await this.repo.delete(id);
+  protected async afterInsertOne(_row: IPartialRowExtended<TRow>): Promise<void> {
+    return;
+  }
+
+  protected async beforeUpdateOne(change: Partial<TRow>, _oldRow: TRow): Promise<IPartialRowWithUpdate<TRow>> {
+    // extract id and createdAtUtc to avoid update
+    const { id, createdAtUtc, ...otherChange } = change as any;
+    return {
+      ...otherChange,
+      updatedAtUtc: new Date(),
+    };
+  }
+
+  async updateOne(req: Request, res: Response): Promise<void> {
+    const id = extractIdFromHttpPathParams(req.params, this.idParamPlaceHolder);
+    const rawChange = convertHttpRequestBodyToRow<TRow>(req.body, this.columnNamesUpdatable);
+    const oldRow = await this.repo.selectOne({ criteria: [{ k: 'id', v: id }] });
+    if (!oldRow) {
+      res.status(404).json({ error: 'not found' });
+      return;
+    }
+    const change = await this.beforeUpdateOne(rawChange, oldRow);
+    const data = await this.repo.updateOne(id, change);
     res.json({ data });
+    try {
+      await this.afterUpdateOne(change, oldRow);
+    } catch (error) {
+      this.logger.error({ msg: this.name + 'afterUpdate failed', data: { error, id, rawChange, oldRow }});
+    }
+  }
+
+  protected async afterUpdateOne(_change: Partial<TRow>, _oldRow: TRow): Promise<void> {
+    return;
+  }
+
+  protected async beforeDeleteOne(_oldRow: TRow): Promise<void> {
+    return;
+  }
+
+  async deleteOne(req: Request, res: Response): Promise<void> {
+    const id = extractIdFromHttpPathParams(req.params, this.idParamPlaceHolder);
+    const oldRow = await this.repo.selectOne({ criteria: [{ k: 'id', v: id }] });
+    if (!oldRow) {
+      res.status(404).json({ error: 'not found' });
+      return;
+    }
+    await this.beforeDeleteOne(oldRow);
+    const data = await this.repo.deleteOne(id);
+    res.json({ data });
+    try {
+      await this.afterDeleteOne(oldRow);
+    } catch (error) {
+      this.logger.error({ msg: this.name + 'afterDelete failed', data: { error, id }});
+    }
+  }
+
+  protected async afterDeleteOne(_oldRow: TRow): Promise<void> {
+    return;
   }
 }

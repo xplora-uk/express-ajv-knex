@@ -1,38 +1,38 @@
 import knex from 'knex';
-import { IBasicDbService, IBasicDbRepo, IdType, ISelectOneOptions, ISelectManyOptions, ISelectCountOptions, IDbResultPaginated, IDbCriterion } from '../types';
+import { IBasicDbService, IBasicDbRepo, IdType, ISelectOneOptions, ISelectManyOptions, ISelectCountOptions, IDbResultPaginated, IDbCriterion, IPartialRowWithId, IPartialRowExtended } from '../types';
 import { filterColumnNames } from '../utils/array';
 
 export class BasicDbRepo<TRow extends {} = any> implements IBasicDbRepo<TRow> {
-  public idColumn                      = 'id';
-  public createdAtColumn               = '';
-  public updatedAtColumn               = '';
+  // protected idColumn        = 'id';
+  // protected createdAtColumn = 'createdAtUtc';
+  // protected updatedAtColumn = 'updatedAtUtc';
 
-  public columnNames: string[]         = ['id'];
+  public columnNames: string[]         = [];
   public columnNamesNoSelect: string[] = [];
   public columnNamesNoCreate: string[] = [];
   public columnNamesNoUpdate: string[] = [];
+
+  public LIMIT_DEFAULT = 10;
+  public LIMIT_MAX     = 100;
 
   constructor(public db: IBasicDbService, public tableName: string) {
     // do nothing
   }
 
-  columnNamesSelectable() {
+  get columnNamesSelectable(): string[] {
     return filterColumnNames(this.columnNames, this.columnNamesNoSelect);
   }
 
-  columnNamesCreatable() {
+  get columnNamesCreatable(): string[] {
     return filterColumnNames(this.columnNames, this.columnNamesNoCreate);
   }
 
-  columnNamesUpdatable() {
+  get columnNamesUpdatable(): string[] {
     return filterColumnNames(this.columnNames, this.columnNamesNoUpdate);
   }
 
   rwTable() {
     return this.db.dbRw(this.tableName);
-  }
-  roTable() {
-    return this.db.dbRo(this.tableName);
   }
 
   whereAdapter(criteria: IDbCriterion[] = []) {
@@ -110,7 +110,7 @@ export class BasicDbRepo<TRow extends {} = any> implements IBasicDbRepo<TRow> {
   async selectCount(options: ISelectCountOptions): Promise<number> {
     let { criteria = [] } = options;
 
-    const rowCounter = await this.roTable()
+    const rowCounter = await this.db.dbRo
       .count('* as count')
       .from<{ count: number; }>(this.tableName)
       .where(this.whereAdapter(criteria))
@@ -120,54 +120,56 @@ export class BasicDbRepo<TRow extends {} = any> implements IBasicDbRepo<TRow> {
     return Number.isNaN(c) ? 0 : c;
   }
 
-  async selectMany(options: ISelectManyOptions): Promise<Array<Partial<TRow>>> {
-    let { columns = [], criteria = [], orderBy = this.idColumn, orderDir = 'asc', limit = 1000, offset = 0 } = options;
+  async selectMany(options: ISelectManyOptions): Promise<Array<TRow>> {
+    let { columns = [], criteria = [], orderBy = 'id', orderDir = 'asc', limit = this.LIMIT_DEFAULT, offset = 0 } = options;
 
-    if (limit > 1000) limit = 1000;
+    if (limit > this.LIMIT_MAX) limit = this.LIMIT_MAX;
     if (offset < 0) offset = 0;
 
-    const rows = await this.roTable()
-      .select(columns)
-      .from<Partial<TRow>>(this.tableName)
+    const rows = await this.db.dbRo
+      .select(columns.length ? columns : '*')
+      .from<TRow>(this.tableName)
       .where(this.whereAdapter(criteria))
       .orderBy(orderBy, orderDir)
       .limit(limit)
       .offset(offset);
 
-    return (rows || []) as Array<Partial<TRow>>; // pretending
+    return (rows || []) as Array<TRow>; // pretending
   }
 
-  async select(options: ISelectOneOptions): Promise<Partial<TRow | null>> {
-    let { columns = [], criteria = {}, orderBy = this.idColumn, orderDir = 'asc' } = options;
+  async selectOne(options: ISelectOneOptions): Promise<TRow | null> {
+    let { criteria = {}, orderBy = 'id', orderDir = 'asc' } = options;
 
-    const row = await this.roTable()
-      .select(columns)
-      .from<Partial<TRow>>(this.tableName)
+    const row = await this.db.dbRo
+      .select('*')
+      .from<TRow>(this.tableName)
       .where(criteria)
       .orderBy(orderBy, orderDir)
+      .limit(1)
+      .offset(0)
       .first();
 
-    return row || null;
+    return row ? row as TRow : null; // pretending TRow
   }
 
-  async insert(data: Partial<TRow>): Promise<Partial<TRow>> {
+  async insertOne(newRow: Partial<TRow>): Promise<IdType | null> {
     const result = await this.rwTable()
-      .insert(data)
-      .returning(this.idColumn);
-    return result && result.length ? result[0] : {};
+      .insert(newRow)
+      .returning('id');
+    return result && result.length ? result[0]['id'] : null;
   }
 
-  async update(id: IdType, data: Partial<TRow>): Promise<number> {
+  async updateOne(id: IdType, data: Partial<TRow>): Promise<number> {
     const result = await this.rwTable()
-      .where(this.idColumn, id)
+      .where('id', id)
       .update(data);
 
     return result;
   }
 
-  async delete(id: IdType): Promise<number> {
+  async deleteOne(id: IdType): Promise<number> {
     const result = await this.rwTable()
-      .where(this.idColumn, id)
+      .where('id', id)
       .del();
 
     return result;
