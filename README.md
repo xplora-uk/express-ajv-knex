@@ -12,30 +12,7 @@ tools (using express, ajv, knex) to work with OpenAPI (JSON Schemas) and create 
 npm i @xplora-uk/express-ajv-knex
 ```
 
-Shorter version:
-
-```typescript
-import express from 'express';
-import * as OpenApiValidator from 'express-openapi-validator';
-import { useControllerForExpressApp, errorHandlerForExpressApp } from '@xplora-uk/express-ajv-knex';
-
-const app = express();
-const logger = makeLogger();
-const db = new Basic
-app.use(
-  OpenApiValidator.middleware({
-    apiSpec: './openapi.yaml',
-    validateRequests: true,
-    validateResponses: false,
-  }),
-);
-
-useControllerForExpressApp({ app, options: { tableName: 'SomeEntity' }, db, logger });
-// useControllerForExpressApp({ app, options: { tableName: 'SomeEntity', path: '/some-entity' }, logger })
-
-// last middleware
-app.use(errorHandlerForExpressApp(logger));
-```
+See `./example/src`
 
 ## maintenance
 
@@ -50,7 +27,6 @@ npm i
 ```plain
 src/
   __tests__/
-    component/            component tests
     unit/                 unit tests
   ajv/                    load ajv lib
   express/                controller and validator for express app
@@ -72,7 +48,6 @@ You can run tests with/without coverage info.
 
 ```sh
 npm run test:unit
-npm run test:component
 npm run test:coverage
 ```
 

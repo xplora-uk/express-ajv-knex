@@ -1,21 +1,24 @@
 import { ILogger } from '@xplora-uk/logger';
 import { Request, Response } from 'express';
 import { IBasicDbRepo, IPartialRowExtended, IPartialRowWithUpdate } from '../types';
+import { ErrorObject } from 'ajv';
 
 export interface IValidatorMiddlewareOptions {
   openApiSpecFilePath: string;
 }
 
 export interface IResourceOptions {
-  tableName : string;
-  path     ?: string;
-  schemas  ?: {
-    insertOne : string;
-    selectMany: string;
-    selectOne : string;
-    updateOne : string;
-    deleteOne : string;
+  tableName   : string;
+  path       ?: string;
+  openApiSpec?: any;
+  schemas    ?: {
+    insertOne ?: string;
+    selectMany?: string;
+    selectOne ?: string;
+    updateOne ?: string;
+    deleteOne ?: string;
   };
+  onValidationErrors?: (errors: ErrorObject[], schema: string, req: Request) => Promise<void> | void;
 }
 
 export interface IResourceController<TRow extends {} = any> {

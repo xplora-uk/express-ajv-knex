@@ -1,7 +1,8 @@
 import ajv from '../ajv';
 
 export function makeJsonSchemaValidator(openApiDoc: any, schemaName: string) {
-  if (!(schemaName in openApiDoc?.components?.schemas)) {
+  const doc = openApiDoc?.components?.schemas || {};
+  if (!(schemaName in doc)) {
     throw new Error(`Schema ${schemaName} not found in OpenAPI document`);
   }
   const jsonSchema = {
