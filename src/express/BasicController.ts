@@ -2,7 +2,7 @@ import { ILogger } from '@xplora-uk/logger';
 import { Request, Response } from 'express';
 
 import { BasicDbRepo } from '../knex/BasicDbRepo';
-import { IResourceController } from './types';
+import { IContext, IResourceController } from './types';
 import { convertHttpRequestBodyToRow, convertRequestQueryToDbColumns, convertRequestQueryToDbSelector, extractIdFromHttpPathParams, uuidV4 } from '../utils';
 import { IPartialRowExtended, IPartialRowWithUpdate } from '../types';
 
@@ -11,24 +11,19 @@ export class BasicController<TRow extends {} = any> implements IResourceControll
   columnNamesSelectable: string[];
   columnNamesCreatable: string[];
   columnNamesUpdatable: string[];
-  idParamPlaceHolder = 'id';
   constructor(
     public repo: BasicDbRepo<TRow>,
     public logger: ILogger,
+    public idParamPlaceHolder = 'id',
   ) {
-    this.insertOne  = this.insertOne.bind(this);
-    this.selectMany = this.selectMany.bind(this);
-    this.selectOne  = this.selectOne.bind(this);
-    this.updateOne  = this.updateOne.bind(this);
-    this.deleteOne  = this.deleteOne.bind(this);
-
     // local cache
     this.columnNamesSelectable = repo.columnNamesCreatable;
     this.columnNamesCreatable  = repo.columnNamesCreatable;
     this.columnNamesUpdatable  = repo.columnNamesUpdatable;
   }
 
-  async selectMany(req: Request, res: Response): Promise<void> {
+  // with this style, no need to bind this in constructor; as we need to use handler with express app
+  selectMany = async (req: Request, res: Response): Promise<void> => {
     const selector = convertRequestQueryToDbSelector(req.query, this.columnNamesSelectable);
     const count    = await this.repo.selectCount({ criteria: selector.criteria });
     const result   = await this.repo.selectMany(selector);
@@ -37,17 +32,18 @@ export class BasicController<TRow extends {} = any> implements IResourceControll
     res.json({ data, page });
   }
 
-  async selectOne(req: Request, res: Response): Promise<void> {
+  // with this style, no need to bind this in constructor; as we need to use handler with express app
+  selectOne = async (req: Request, res: Response): Promise<void> => {
     const id      = extractIdFromHttpPathParams(req.params, this.idParamPlaceHolder);
     const columns = convertRequestQueryToDbColumns(req.query, this.columnNamesSelectable);
     const data = await this.repo.selectOne({
       columns,
-      criteria: [{ k: 'id', v: id }],
+      criteria: [{ k: 'id', o: '$eq', v: id }],
     });
     res.json({ data });
   }
 
-  protected async beforeInsertOne(rawRow: Partial<TRow>): Promise<IPartialRowExtended<TRow>> {
+  beforeInsertOne = async (rawRow: Partial<TRow>, _ctx: IContext): Promise<IPartialRowExtended<TRow>> => {
     // check/change row
     return {
       ...rawRow,
@@ -57,23 +53,25 @@ export class BasicController<TRow extends {} = any> implements IResourceControll
     };
   }
 
-  async insertOne(req: Request, res: Response): Promise<void> {
+  // with this style, no need to bind this in constructor; as we need to use handler with express app
+  insertOne = async (req: Request, res: Response): Promise<void> => {
+    const ctx: IContext = { req, res };
     const rawRow = convertHttpRequestBodyToRow<TRow>(req.body, this.columnNamesCreatable);
-    const row = await this.beforeInsertOne(rawRow);
+    const row = await this.beforeInsertOne(rawRow, ctx);
     const id = await this.repo.insertOne(row);
     res.json({ data: id ? { id } : null });
     try {
-      await this.afterInsertOne(row);
+      await this.afterInsertOne(row, ctx);
     } catch (error) {
       this.logger.error({ msg: this.name + '.afterInsert failed', data: { error, row }});
     }
   }
 
-  protected async afterInsertOne(_row: IPartialRowExtended<TRow>): Promise<void> {
+  afterInsertOne = async (_row: IPartialRowExtended<TRow>, _ctx: IContext): Promise<void> => {
     return;
   }
 
-  protected async beforeUpdateOne(change: Partial<TRow>, _oldRow: TRow): Promise<IPartialRowWithUpdate<TRow>> {
+  beforeUpdateOne = async (change: Partial<TRow>, _oldRow: TRow, _ctx: IContext): Promise<IPartialRowWithUpdate<TRow>> => {
     // extract id and createdAtUtc to avoid update
     const { id, createdAtUtc, ...otherChange } = change as any;
     return {
@@ -82,50 +80,50 @@ export class BasicController<TRow extends {} = any> implements IResourceControll
     };
   }
 
-  async updateOne(req: Request, res: Response): Promise<void> {
+  // with this style, no need to bind this in constructor; as we need to use handler with express app
+  updateOne = async (req: Request, res: Response): Promise<void> => {
+    const ctx: IContext = { req, res };
     const id = extractIdFromHttpPathParams(req.params, this.idParamPlaceHolder);
     const rawChange = convertHttpRequestBodyToRow<TRow>(req.body, this.columnNamesUpdatable);
-    const oldRow = await this.repo.selectOne({ criteria: [{ k: 'id', v: id }] });
+    const oldRow = await this.repo.selectOne({ criteria: [{ k: 'id', o: '$eq', v: id }] });
     if (!oldRow) {
       res.status(404).json({ error: 'not found' });
       return;
     }
-    const change = await this.beforeUpdateOne(rawChange, oldRow);
+    const change = await this.beforeUpdateOne(rawChange, oldRow, ctx);
     const data = await this.repo.updateOne(id, change);
     res.json({ data });
     try {
-      await this.afterUpdateOne(change, oldRow);
+      await this.afterUpdateOne(change, oldRow, ctx);
     } catch (error) {
       this.logger.error({ msg: this.name + 'afterUpdate failed', data: { error, id, rawChange, oldRow }});
     }
   }
 
-  protected async afterUpdateOne(_change: Partial<TRow>, _oldRow: TRow): Promise<void> {
+  afterUpdateOne = async (_change: Partial<TRow>, _oldRow: TRow, _ctx: IContext): Promise<void> => {
     return;
   }
 
-  protected async beforeDeleteOne(_oldRow: TRow): Promise<void> {
-    return;
-  }
+  beforeDeleteOne = async (_oldRow: TRow, _ctx: IContext): Promise<void> => { return; }
 
-  async deleteOne(req: Request, res: Response): Promise<void> {
+  // with this style, no need to bind this in constructor; as we need to use handler with express app
+  deleteOne = async (req: Request, res: Response): Promise<void> => {
+    const ctx = { req, res };
     const id = extractIdFromHttpPathParams(req.params, this.idParamPlaceHolder);
-    const oldRow = await this.repo.selectOne({ criteria: [{ k: 'id', v: id }] });
+    const oldRow = await this.repo.selectOne({ criteria: [{ k: 'id', o: '$eq', v: id }] });
     if (!oldRow) {
       res.status(404).json({ error: 'not found' });
       return;
     }
-    await this.beforeDeleteOne(oldRow);
+    await this.beforeDeleteOne(oldRow, ctx);
     const data = await this.repo.deleteOne(id);
     res.json({ data });
     try {
-      await this.afterDeleteOne(oldRow);
+      await this.afterDeleteOne(oldRow, ctx);
     } catch (error) {
       this.logger.error({ msg: this.name + 'afterDelete failed', data: { error, id }});
     }
   }
 
-  protected async afterDeleteOne(_oldRow: TRow): Promise<void> {
-    return;
-  }
+  afterDeleteOne = async (_oldRow: TRow, _ctx: IContext): Promise<void> => { return; };
 }

@@ -32,7 +32,8 @@ export interface IBasicDbRepo<TRow extends {} = any> {
   rwTable(): Knex.QueryBuilder<TRow>;
   // roTable(): Knex.QueryBuilder<TRow>;
 
-  whereAdapter(criteria?: IDbCriterion[]): Knex.QueryCallback;
+  // NOTE side-effect: modifies qry
+  whereAdapter(qry: Knex.QueryBuilder, criteria?: IDbCriterion[]): void;
 
   selectCount(options: ISelectCountOptions)   : Promise<number>;
   selectMany(options: ISelectManyOptions)     : Promise<Array<TRow>>;
@@ -89,9 +90,9 @@ export interface IDbCriterion {
 export type IDbOrderDir = 'asc' | 'desc';
 
 export type IDbOp$ = '$eq' | '$neq' | '$gt' | '$gte' | '$lt' | '$lte' | '$like' | '$ilike' | '$in' | '$nin' | '$notin' | '$nil' | '$nnil';
-export type IDbOpExt = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'nin' | 'notin' | 'nil' | 'nnil';
-export type IDbOpSign = '=' | '!=' | '<>' | '>' | '>=' | '<' | '<=';
-export type IDbOp = IDbOp$ | IDbOpExt | IDbOpSign;
+// export type IDbOpExt = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'nin' | 'notin' | 'nil' | 'nnil';
+// export type IDbOpSign = '=' | '!=' | '<>' | '>' | '>=' | '<' | '<=';
+export type IDbOp = IDbOp$; // | IDbOpExt | IDbOpSign;
 export type IDbVal = string | number | boolean | null | Date;
 
 export type IdType = string;

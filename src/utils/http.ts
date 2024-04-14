@@ -25,10 +25,10 @@ export function convertRequestQueryToDbSelector(query: Request['query'], columnN
   if (typeof orderDir === 'string' && ['asc', 'desc'].includes(orderDir)) _orderDir = orderDir as IDbOrderDir;
 
   let _limit = Number.parseInt(String(limit), 10);
-  if (Number.isNaN(_limit) || _limit > 1000) _limit = 1000;
+  if (Number.isNaN(_limit) || _limit > 1000) _limit = 100;
 
   let _offset = Number.parseInt(String(offset), 10);
-  if (Number.isNaN(offset) || _offset < 0) _offset = 1000;
+  if (Number.isNaN(offset) || _offset < 0) _offset = 0;
 
   return {
     columns : _columns,
@@ -44,10 +44,7 @@ export function extractIdFromHttpPathParams(params: Request['params'], placeHold
   return String(params[placeHolder] || '');
 }
 
-export function convertHttpRequestBodyToRow<TRow extends {} = any>(
-  body: Request['body'],
-  columnNames: string[],
-): TRow {
+export function convertHttpRequestBodyToRow<TRow extends {} = any>(body: Request['body'], columnNames: string[]): TRow {
   const row: Record<string, any> = {};
 
   for (const key of columnNames) {

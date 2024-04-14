@@ -9,8 +9,8 @@ export class BasicDbRepo<TRow extends {} = any> implements IBasicDbRepo<TRow> {
 
   public columnNames: string[]         = [];
   public columnNamesNoSelect: string[] = [];
-  public columnNamesNoCreate: string[] = [];
-  public columnNamesNoUpdate: string[] = [];
+  public columnNamesNoCreate: string[] = ['id', 'createdAtUtc', 'updatedAtUtc'];
+  public columnNamesNoUpdate: string[] = ['id', 'createdAtUtc', 'updatedAtUtc'];
 
   public LIMIT_DEFAULT = 10;
   public LIMIT_MAX     = 100;
@@ -35,86 +35,49 @@ export class BasicDbRepo<TRow extends {} = any> implements IBasicDbRepo<TRow> {
     return this.db.dbRw(this.tableName);
   }
 
-  whereAdapter(criteria: IDbCriterion[] = []) {
-
-    const cb: knex.Knex.QueryCallback = (qry) => {
-      // for each key in criteria, add a where clause
-      for (const { k: key, o: op = '=', v: val = null, vlist = [] } of criteria) {
-        switch (op) {
-          case '=':
-          case 'eq':
-          case '$eq':
-            qry.where(key, val); break;
-
-          case '<>':
-          case 'neq':
-          case '$neq':
-            qry.whereNot(key, val); break;
-
-          case 'nil':
-          case '$nil':
-            qry.whereNull(key); break;
-
-          case 'nnil':
-          case '$nnil':
-            qry.whereNotNull(key); break;
-
-          case 'like':
-          case '$like':
-            qry.whereLike(key, val); break;
-
-          case 'ilike':
-          case '$ilike':
-            qry.whereILike(key, val); break;
-
-          case 'ilike':
-          case '$ilike':
-            qry.whereILike(key, val); break;
-
-          case 'in':
-          case '$in':
-            qry.whereIn(key, vlist); break;
-
-          case 'nin':
-          case 'notin':
-          case '$nin':
-          case '$notin':
-            qry.whereNotIn(key, vlist); break;
-
-          case '>':
-          case 'gt':
-          case '$gt':
-            qry.where(key, '>', val); break;
-
-          case '>=':
-          case 'gte':
-          case '$gte':
-            qry.where(key, '>=', val); break;
-
-          case '<':
-          case 'lt':
-          case '$lt':
-            qry.where(key, '<', val); break;
-
-          case '<=':
-          case 'lte':
-          case '$lte':
-            qry.where(key, '<=', val); break;
-        }
+  whereAdapter(qry: knex.Knex.QueryBuilder, criteria: IDbCriterion[] = []): void {
+    for (const criterion of criteria) {
+      // add where clauses
+      const { k, o = '$eq', v = null, vlist = [] } = criterion;
+      switch (o) { // operation
+        case '$eq':
+          qry.where(k, '=', v); break;
+        case '$neq':
+          qry.whereNot(k, '<>', v); break;
+        case '$gt':
+          qry.where(k, '>', v); break;
+        case '$gte':
+          qry.where(k, '>=', v); break;
+        case '$lt':
+          qry.where(k, '<', v); break;
+        case '$lte':
+          qry.where(k, '<=', v); break;
+        case '$nil':
+          qry.whereNull(k); break;
+        case '$nnil':
+          qry.whereNotNull(k); break;
+        case '$like':
+          qry.whereLike(k, v); break;
+        case '$ilike':
+          qry.whereILike(k, v); break;
+        case '$ilike':
+          qry.whereILike(k, v); break;
+        case '$in':
+          qry.whereIn(k, vlist); break;
+        case '$nin':
+          qry.whereNotIn(k, vlist); break;
       }
     }
-
-    return cb;
   }
 
   async selectCount(options: ISelectCountOptions): Promise<number> {
     let { criteria = [] } = options;
 
-    const rowCounter = await this.db.dbRo
-      .count('* as count')
-      .from<{ count: number; }>(this.tableName)
-      .where(this.whereAdapter(criteria))
-      .first();
+    const qry = this.db.dbRo<{ count: number; }>(this.tableName);
+
+    this.whereAdapter(qry, criteria);
+
+    const rowCounter = qry.count('* as count').first();
 
     const c = Number.parseInt(String(rowCounter?.count || '0'), 10);
     return Number.isNaN(c) ? 0 : c;
@@ -126,10 +89,12 @@ export class BasicDbRepo<TRow extends {} = any> implements IBasicDbRepo<TRow> {
     if (limit > this.LIMIT_MAX) limit = this.LIMIT_MAX;
     if (offset < 0) offset = 0;
 
-    const rows = await this.db.dbRo
+    const qry = this.db.dbRo<TRow>(this.tableName);
+
+    this.whereAdapter(qry, criteria);
+
+    const rows = await qry
       .select(columns.length ? columns : '*')
-      .from<TRow>(this.tableName)
-      .where(this.whereAdapter(criteria))
       .orderBy(orderBy, orderDir)
       .limit(limit)
       .offset(offset);
@@ -138,12 +103,14 @@ export class BasicDbRepo<TRow extends {} = any> implements IBasicDbRepo<TRow> {
   }
 
   async selectOne(options: ISelectOneOptions): Promise<TRow | null> {
-    let { criteria = {}, orderBy = 'id', orderDir = 'asc' } = options;
+    let { columns = [], criteria = [], orderBy = 'id', orderDir = 'asc' } = options;
 
-    const row = await this.db.dbRo
-      .select('*')
-      .from<TRow>(this.tableName)
-      .where(criteria)
+    const qry = this.db.dbRo<TRow>(this.tableName);
+
+    this.whereAdapter(qry, criteria);
+
+    const row = await qry
+      .select(columns.length ? columns : '*')
       .orderBy(orderBy, orderDir)
       .limit(1)
       .offset(0)

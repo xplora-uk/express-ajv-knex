@@ -16,13 +16,25 @@ Shorter version:
 
 ```typescript
 import express from 'express';
-import { validatorForExpressApp, controllerForExpressApp } from '@xplora-uk/express-ajv-knex';
+import * as OpenApiValidator from 'express-openapi-validator';
+import { useControllerForExpressApp, errorHandlerForExpressApp } from '@xplora-uk/express-ajv-knex';
 
 const app = express();
 const logger = makeLogger();
-validatorForExpressApp(app, { openApiSpecFilePath: './openapi.yaml' }, logger);
-controllerForExpressApp(app, { tableName: 'SomeEntity' }, logger)
-//controllerForExpressApp(app, { tableName: 'SomeEntity', path: '/some-entity' }, logger)
+const db = new Basic
+app.use(
+  OpenApiValidator.middleware({
+    apiSpec: './openapi.yaml',
+    validateRequests: true,
+    validateResponses: false,
+  }),
+);
+
+useControllerForExpressApp({ app, options: { tableName: 'SomeEntity' }, db, logger });
+// useControllerForExpressApp({ app, options: { tableName: 'SomeEntity', path: '/some-entity' }, logger })
+
+// last middleware
+app.use(errorHandlerForExpressApp(logger));
 ```
 
 ## maintenance
