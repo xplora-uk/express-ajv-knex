@@ -22,28 +22,39 @@ export class BasicController<TRow extends {} = any> implements IResourceControll
     this.columnNamesUpdatable  = repo.columnNamesUpdatable;
   }
 
+  adaptManyRows = (rows: Array<Partial<TRow>>, _ctx: IContext): Array<Partial<TRow>> => {
+    return rows;
+  };
+
   // with this style, no need to bind this in constructor; as we need to use handler with express app
   selectMany = async (req: Request, res: Response): Promise<void> => {
+    const ctx      = { req, res };
     const selector = convertRequestQueryToDbSelector(req.query, this.columnNamesSelectable);
     const count    = await this.repo.selectCount({ criteria: selector.criteria });
-    const result   = await this.repo.selectMany(selector);
-    const data     = result || [];
+    const rows     = await this.repo.selectMany(selector);
+    const data     = rows ? this.adaptManyRows(rows, ctx) : [];
     const page     = { limit: selector.limit, offset: selector.offset, count: count || 0 };
     res.json({ data, page });
   }
 
+  adaptOneRow = (row: Partial<TRow>, _ctx: IContext): Partial<TRow> => {
+    return row;
+  };
+
   // with this style, no need to bind this in constructor; as we need to use handler with express app
   selectOne = async (req: Request, res: Response): Promise<void> => {
+    const ctx     = { req, res };
     const id      = extractIdFromHttpPathParams(req.params, this.idParamPlaceHolder);
     const columns = convertRequestQueryToDbColumns(req.query, this.columnNamesSelectable);
-    const data = await this.repo.selectOne({
+    const row = await this.repo.selectOne({
       columns,
       criteria: [{ k: 'id', o: '$eq', v: id }],
     });
+    const data = row ? this.adaptOneRow(row, ctx) : null;
     res.json({ data });
   }
 
-  beforeInsertOne = async (rawRow: Partial<TRow>, _ctx: IContext): Promise<IPartialRowExtended<TRow>> => {
+  private _beforeInsertOne = async (rawRow: Partial<TRow>, _ctx: IContext): Promise<IPartialRowExtended<TRow>> => {
     // check/change row
     return {
       ...rawRow,
@@ -53,11 +64,16 @@ export class BasicController<TRow extends {} = any> implements IResourceControll
     };
   }
 
+  beforeInsertOne = async (rawRow: IPartialRowExtended<TRow>, _ctx: IContext): Promise<IPartialRowExtended<TRow>> => {
+    return rawRow;
+  }
+
   // with this style, no need to bind this in constructor; as we need to use handler with express app
   insertOne = async (req: Request, res: Response): Promise<void> => {
     const ctx: IContext = { req, res };
     const rawRow = convertHttpRequestBodyToRow<TRow>(req.body, this.columnNamesCreatable);
-    const row = await this.beforeInsertOne(rawRow, ctx);
+    let row = await this._beforeInsertOne(rawRow, ctx);
+    row = await this.beforeInsertOne(row, ctx);
     const id = await this.repo.insertOne(row);
     res.json({ data: id ? { id } : null });
     try {
@@ -71,7 +87,7 @@ export class BasicController<TRow extends {} = any> implements IResourceControll
     return;
   }
 
-  beforeUpdateOne = async (change: Partial<TRow>, _oldRow: TRow, _ctx: IContext): Promise<IPartialRowWithUpdate<TRow>> => {
+  private _beforeUpdateOne = async (change: Partial<TRow>, _oldRow: TRow, _ctx: IContext): Promise<IPartialRowWithUpdate<TRow>> => {
     // extract id and createdAtUtc to avoid update
     const { id, createdAtUtc, ...otherChange } = change as any;
     return {
@@ -80,7 +96,17 @@ export class BasicController<TRow extends {} = any> implements IResourceControll
     };
   }
 
-  // with this style, no need to bind this in constructor; as we need to use handler with express app
+  beforeUpdateOne = async (change: IPartialRowWithUpdate<TRow>, _oldRow: TRow, _ctx: IContext): Promise<IPartialRowWithUpdate<TRow>> => {
+    return change;
+  }
+
+  /**
+   * Update one record
+   * With this style, no need to bind this in constructor; as we need to use handler with express app
+   * @param req 
+   * @param res 
+   * @returns 
+   */
   updateOne = async (req: Request, res: Response): Promise<void> => {
     const ctx: IContext = { req, res };
     const id = extractIdFromHttpPathParams(req.params, this.idParamPlaceHolder);
@@ -90,7 +116,8 @@ export class BasicController<TRow extends {} = any> implements IResourceControll
       res.status(404).json({ error: 'not found' });
       return;
     }
-    const change = await this.beforeUpdateOne(rawChange, oldRow, ctx);
+    let change = await this._beforeUpdateOne(rawChange, oldRow, ctx);
+    change = await this.beforeUpdateOne(change, oldRow, ctx);
     const data = await this.repo.updateOne(id, change);
     res.json({ data });
     try {
@@ -100,13 +127,34 @@ export class BasicController<TRow extends {} = any> implements IResourceControll
     }
   }
 
+  /**
+   * Override this method to add custom logic after updating one record
+   * @param _change 
+   * @param _oldRow 
+   * @param _ctx 
+   * @returns 
+   */
   afterUpdateOne = async (_change: Partial<TRow>, _oldRow: TRow, _ctx: IContext): Promise<void> => {
     return;
   }
 
-  beforeDeleteOne = async (_oldRow: TRow, _ctx: IContext): Promise<void> => { return; }
+  /**
+   * Override this method to add custom logic before deleting one record
+   * @param _oldRow 
+   * @param _ctx 
+   * @returns 
+   */
+  beforeDeleteOne = async (_oldRow: TRow, _ctx: IContext): Promise<void> => {
+    return;
+  }
 
-  // with this style, no need to bind this in constructor; as we need to use handler with express app
+  /**
+   * Delete one record
+   * With this style, no need to bind this in constructor; as we need to use handler with express app
+   * @param req 
+   * @param res 
+   * @returns 
+   */
   deleteOne = async (req: Request, res: Response): Promise<void> => {
     const ctx = { req, res };
     const id = extractIdFromHttpPathParams(req.params, this.idParamPlaceHolder);
@@ -125,5 +173,13 @@ export class BasicController<TRow extends {} = any> implements IResourceControll
     }
   }
 
-  afterDeleteOne = async (_oldRow: TRow, _ctx: IContext): Promise<void> => { return; };
+  /**
+   * Override this method to add custom logic after deleting one record
+   * @param _oldRow 
+   * @param _ctx 
+   * @returns 
+   */
+  afterDeleteOne = async (_oldRow: TRow, _ctx: IContext): Promise<void> => {
+    return;
+  };
 }

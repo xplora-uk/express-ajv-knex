@@ -26,16 +26,18 @@ export interface IResourceController<TRow extends {} = any> {
   logger    : ILogger;
 
   insertOne       : (req: Request, res: Response) => Promise<void>; // match express + http.server callback style
-  beforeInsertOne?: (rawRow: Partial<TRow>, ctx: IContext) => Promise<IPartialRowExtended<TRow>>;
+  beforeInsertOne?: (rawRow: IPartialRowExtended<TRow>, ctx: IContext) => Promise<IPartialRowExtended<TRow>>;
   afterInsertOne ?: (row: IPartialRowExtended<TRow>, ctx: IContext) => Promise<void>;
 
+  adaptManyRows: (rows: Array<Partial<TRow>>, ctx: IContext) => Array<Partial<TRow>>;
   selectMany: (req: Request, res: Response) => Promise<void>; // match express + http.server callback style
 
+  adaptOneRow: (row: Partial<TRow>, ctx: IContext) => Partial<TRow>;
   selectOne : (req: Request, res: Response) => Promise<void>; // match express + http.server callback style
 
   updateOne       : (req: Request, res: Response) => Promise<void>; // match express + http.server callback style
-  beforeUpdateOne?: (change: Partial<TRow>, oldRow: TRow, ctx: IContext) => Promise<IPartialRowWithUpdate<TRow>>;
-  afterUpdateOne ?: (change: Partial<TRow>, oldRow: TRow, ctx: IContext) => Promise<void>;
+  beforeUpdateOne?: (change: IPartialRowWithUpdate<TRow>, oldRow: TRow, ctx: IContext) => Promise<IPartialRowWithUpdate<TRow>>;
+  afterUpdateOne ?: (change: IPartialRowWithUpdate<TRow>, oldRow: TRow, ctx: IContext) => Promise<void>;
 
   deleteOne       : (req: Request, res: Response) => Promise<void>; // match express + http.server callback style
   beforeDeleteOne?: (oldRow: TRow, ctx: IContext) => Promise<void>;

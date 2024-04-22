@@ -60,8 +60,6 @@ export class BasicDbRepo<TRow extends {} = any> implements IBasicDbRepo<TRow> {
           qry.whereLike(k, v); break;
         case '$ilike':
           qry.whereILike(k, v); break;
-        case '$ilike':
-          qry.whereILike(k, v); break;
         case '$in':
           qry.whereIn(k, vlist); break;
         case '$nin':

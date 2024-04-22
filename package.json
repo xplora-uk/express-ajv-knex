@@ -1,6 +1,6 @@
 {
   "name": "@xplora-uk/express-ajv-knex",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "tools (using express, ajv, knex) to work with OpenAPI (JSON Schemas) and create simple RESTful resources for SQL databases",
   "main": "lib/index.js",
   "type": "commonjs",
